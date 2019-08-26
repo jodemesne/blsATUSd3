@@ -1,0 +1,229 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>BLS American Time Use Survey</title>
+<script type="text/javascript" src="d3_v4_5/d3.js"></script>
+<style>
+
+.bar:hover {
+  fill: teal;
+}
+</style>
+</head>
+
+<body>
+
+
+<h3> American Time Use Survey By Gender: Activities Average Hours</h3>
+<div id="selector">
+  <form>
+    <select name="gender">
+      <option value="All">All</option>
+      <option value="Men">Men</option>
+      <option value="Women">Women</option>
+    </select>
+    <br><br>
+  <button type="submit" onclick="pullData()"> Plot Data </button>
+  </form>
+</div>
+
+
+
+<script
+  src="https://code.jquery.com/jquery-3.2.1.js"
+  integrity="sha256-DZAnKJ/6XZ9si04Hgrsxu/8s717jcIzLy3oi35EouyE="
+  crossorigin="anonymous"></script>
+
+<script type="text/javascript">
+  var dataset;
+  var gender;
+
+  function pullData(){
+   event.preventDefault();
+   $("button").hide();
+   gender= $( "select[name=gender] option:selected" ).text();
+
+   d3.csv("2019-07-20 BLS ATUS Composite.csv", function(data) {
+     dataset = $.grep( data, function( n, i ) {
+       return n.Level==='1' && n.Gender===gender;
+       //console.log(dataset);
+
+     });
+     console.log(dataset);
+     createCharts(dataset);
+   });
+ };
+
+function createCharts(dataset){
+
+  var w = 1000;
+  var h = 350;
+  var margin = {top: 10, right: 20, bottom: 100, left: 100}
+
+  var xScale = d3.scaleBand() // scaleBand is an ordinal scale that we are using here to draw values from left to right in order they occur
+   //         .domain(d3.range(dataset.length))
+            .domain(dataset.map(function (d){ return d.key}))
+            .rangeRound([margin.left, w-margin.right])
+            .paddingInner(0.1); //10% of width of bands is reserved for spacing between bars
+
+  var yScale = d3.scaleLinear()
+ //           .domain([0, d3.max(dataset, function(d) { return d.value; })])
+            .domain([0, 10])
+            .range([h-margin.bottom, margin.top]);
+
+  //Define key function, to be used when binding data
+  var key = function(d) {
+     return d.key;
+  };
+
+    //Create SVG element
+  var svg = d3.select("body")
+    .append("svg")
+    .attr("width", w)
+    .attr("height", h);
+
+    //Create bars
+   svg.selectAll("rect")
+       .data(dataset, key)
+       .enter()
+       .append("rect").attr("class", "bar")
+       .attr("x", function(d, i) {
+         return xScale(d.key);  // when you write xScale(i), xScale will look up the ordinal value i and return its associated output band
+       })
+       .attr("y", function(d) {
+         return yScale(d.Y2018);
+       })
+       .attr("width", xScale.bandwidth()) // asking scale for its calculated bandwidth to be applied to rects.
+       .attr("height", function(d) {
+         return h - margin.bottom-yScale(d.Y2018);
+       })
+       .attr("fill", function(d) {
+         return "rgb(0, 0, " + (d.Y2018) + ")";
+       });
+
+ //   Create labels
+   svg.selectAll("text")
+     .data(dataset, key)
+     .enter()
+     .append("text")
+     .attr("class", "labels")
+     .text(function(d) {
+       return d.Y2018;
+     })
+     .attr("text-anchor", "middle")
+     .attr("x", function(d, i) {
+       return xScale(d.key) + xScale.bandwidth() / 2;
+     })
+     .attr("y", function(d) {
+         return yScale(d.Y2018) -5;
+     })
+     .attr("font-family", "sans-serif")
+     .attr("font-size", "10px")
+     .attr("fill", "blue");
+
+
+   var yAxis = d3.axisLeft().scale(yScale).ticks(5);
+   var xAxis = d3.axisBottom().scale(xScale); //specify an array here for values
+
+       // g element is an SVG group element with no visual presence but it allows transformations
+   var gy = svg.append("g")
+     .attr("transform", "translate(" + margin.left + ",0)")
+     .attr("class", "y axis")
+     .call(yAxis);
+   var gx = svg.append("g")
+     .attr("transform", "translate(0," + (h - margin.bottom)+ ")")
+     .attr("class", "x axis")
+     .call(xAxis)
+     .selectAll(".tick text")
+     .call(wrap, xScale.bandwidth());
+
+     // text label for the x axis
+   svg.append("text")
+     .attr("transform",
+          "translate(" + (w/2) + " ," +
+                         (h-margin.top) + ")")
+    .style("text-anchor", "middle")
+    .text("TIME USE CATEGORY");
+
+     // text label for the y axis
+   svg.append("text")
+       .attr("y",h/6) //smaller y moves label left
+       .attr("x", 0-margin.left-margin.right) //smaller x moves label down
+       .style("text-anchor", "middle")
+       .attr("transform", "rotate(-90)")
+       .text("AVERAGE HOURS");
+
+   d3.select("select").on("change", function() {
+
+      gender= $( "select[name=gender] option:selected" ).text();
+
+      d3.csv("2019-07-20 BLS ATUS Composite.csv", function(data) {
+        datasetnew = $.grep( data, function( n, i ) {
+          return n.Level==='1' && n.Gender===gender;
+        });
+
+        console.log(datasetnew);
+
+        //Update scale domains
+        xScale.domain(dataset.map(function (d){ return d.key}));
+
+
+       //Do something on change
+       svg.selectAll("rect")
+        .data(datasetnew, key)
+        .attr("y", function(d) {
+          return yScale(d.Y2018);
+        })
+        .attr("height", function(d) {
+          return h - margin.bottom-yScale(d.Y2018);
+        });
+
+        //Select…
+       var labels = svg.selectAll("text.labels")
+          .data(datasetnew, key)
+          .text(function(d) {
+            return d.Y2018;
+          })
+          .attr("x", function(d, i) {
+            return xScale(d.key) + xScale.bandwidth() / 2;
+          })
+          .attr("y", function(d) {
+              return yScale(d.Y2018) -5;
+          })
+      });
+    });
+ };
+
+//Mike Bostock code to wrap axis text labels
+ function wrap(text, width) {
+   text.each(function() {
+     var text = d3.select(this),
+         words = text.text().split(/\s+/).reverse(),
+         word,
+         line = [],
+         lineNumber = 0,
+         lineHeight = 1.1, // ems
+         y = text.attr("y"),
+         dy = parseFloat(text.attr("dy")),
+         tspan = text.text(null).append("tspan").attr("x", 0).attr("y", y).attr("dy", dy + "em")
+     while (word = words.pop()) {
+       line.push(word)
+       tspan.text(line.join(" "))
+       if (tspan.node().getComputedTextLength() > width) {
+         line.pop()
+         tspan.text(line.join(" "))
+         line = [word]
+         tspan = text.append("tspan").attr("x", 0).attr("y", y).attr("dy", `${++lineNumber * lineHeight + dy}em`).text(word)
+       }
+     }
+   })
+ }
+
+
+
+</script>
+
+
+</body>
+</html>
